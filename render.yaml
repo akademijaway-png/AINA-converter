@@ -1,12 +1,8 @@
 # ============================================
 # AINA Converter — Render Blueprint
-# Deploys both services with one click.
-#
-# Format reference: https://render.com/docs/blueprint-spec
 # ============================================
 
 services:
-  # Backend API (Node.js)
   - type: web
     name: aina-converter-api
     runtime: node
@@ -19,14 +15,13 @@ services:
       - key: NODE_VERSION
         value: 20
 
-  # Frontend PWA (Static site)
   - type: web
     name: aina-converter
     runtime: static
     rootDir: frontend
     plan: free
     buildCommand: npm install && npm run build
-    publishPath: ./dist
+    staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
         sync: false
