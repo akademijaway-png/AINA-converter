@@ -1,0 +1,39 @@
+# ============================================
+# AINA Converter — Render Blueprint
+# Deploys both services with one click.
+#
+# Setup:
+# 1. Push this folder to a GitHub repo
+# 2. Go to https://render.com/blueprints
+# 3. Click "New Blueprint Instance" → select your repo
+# 4. Wait ~3 min for both services to deploy
+# 5. After backend deploys, copy its URL and set it as
+#    the VITE_API_URL env var on the frontend, then redeploy
+# ============================================
+
+services:
+  # Backend API (optional — frontend works without it)
+  - type: web
+    name: aina-converter-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+
+  # Frontend PWA (static site)
+  - type: static
+    name: aina-converter
+    runtime: static
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false   # Set this manually after backend deploys
+                      # e.g. https://aina-converter-api.onrender.com

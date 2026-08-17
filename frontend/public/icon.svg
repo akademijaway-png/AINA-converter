@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fce7f3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#g)"/>
+  <!-- AINA text -->
+  <text x="256" y="220" text-anchor="middle" fill="white" font-family="Arial,Helvetica,sans-serif" font-size="120" font-weight="900" letter-spacing="-2">AINA</text>
+  <!-- Document icon -->
+  <g transform="translate(146, 260)">
+    <path d="M0 30 Q0 0 30 0 L160 0 L220 60 L220 200 Q220 230 190 230 L30 230 Q0 230 0 200 Z" fill="white" opacity="0.95"/>
+    <path d="M160 0 L160 50 Q160 60 170 60 L220 60 Z" fill="#fce7f3"/>
+    <text x="110" y="170" text-anchor="middle" fill="#7c3aed" font-family="Arial,sans-serif" font-size="80" font-weight="900">⇄</text>
+  </g>
+</svg>
