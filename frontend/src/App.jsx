@@ -791,8 +791,8 @@ function Web2AppView() {
         <input
           type="url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com"
+          onChange={(e) => { setUrl(e.target.value); setError(null); }}
+          placeholder="https://en.wikipedia.org"
           style={{
             width: '100%', padding: '12px 14px', fontSize: 14,
             background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)',
@@ -833,6 +833,24 @@ function Web2AppView() {
         >
           {loading ? <><span className="spinner" /> Building...</> : <>🚀 Build App</>}
         </button>
+
+        {builtHtml && (
+          <button
+            className="action-btn secondary"
+            style={{ marginTop: 8 }}
+            onClick={() => {
+              setBuiltHtml(null)
+              setBuiltUrl(null)
+              setQrUrl(null)
+              setSiteInfo(null)
+              setUrl('')
+              setAppName('')
+              setError(null)
+            }}
+          >
+            🔄 Build another
+          </button>
+        )}
 
         {error && (
           <div style={{
