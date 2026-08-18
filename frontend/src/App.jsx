@@ -4,19 +4,11 @@ import {
   detectKind, imageToImage, textToHtml, textToRtf, textToCsv,
   jsonToCsv, jsonToText, csvToJson, csvToText, htmlToText,
   spreadsheetToText, spreadsheetToCsv,
-  pdfSplit, pdfMerge
+  pdfSplit, pdfMerge,
+  pdfToImages, pdfToText, pdfToWordLocal
 } from './lib/converters-lite'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
-
-// Heavy operations (PDF, Word, PDF generation) — loaded on demand
-let _full = null
-async function loadFull() {
-  if (!_full) {
-    _full = await import('./lib/converters-full.js')
-  }
-  return _full
-}
 
 export default function App() {
   const [tab, setTab] = useState('convert')
@@ -164,6 +156,10 @@ AINA — universal file conversion.
     }
   }
 
+
+  // Helper for features that need the backend
+  const throwNewErrorBackend = (x) => { throw new Error('PDF/Word generation needs the backend server. Deploy with VITE_API_URL set.'); }
+
   const convert = async () => {
     if (files.length === 0) {
       showStatus('Pick a file first', 'error')
@@ -175,11 +171,6 @@ AINA — universal file conversion.
     try {
       const allOutputs = []
       // Lazy-load full converters only if needed
-      const needsFull = files.some(f => {
-        const k = detectKind(f)
-        return k === 'pdf' || k === 'word' || k === 'spreadsheet' || k === 'presentation' || ['pdf', 'docx', 'xlsx'].includes(targetFormat)
-      })
-      const full = needsFull ? await loadFull() : null
 
       for (const file of files) {
         const kind = detectKind(file)
@@ -209,11 +200,11 @@ AINA — universal file conversion.
         }
         // Text → PDF (full)
         else if (kind === 'text' && fmt === 'pdf') {
-          allOutputs.push(...await full.textToPdf(file, setProgress))
+          allOutputs.push(...await throwNewErrorBackend())
         }
         // Text → Word (full)
         else if (kind === 'text' && fmt === 'docx') {
-          allOutputs.push(...await full.textToWord(file))
+          allOutputs.push(...await throwNewErrorBackend())
         }
         // Text → TXT (passthrough)
         else if (kind === 'text' && fmt === 'txt') {
@@ -231,7 +222,7 @@ AINA — universal file conversion.
         // JSON → PDF (full)
         else if (kind === 'json' && fmt === 'pdf') {
           const txt = await jsonToText(file)
-          allOutputs.push(...await full.textToPdf({ ...file, name: file.name.replace(/\.json$/i, '') + '.txt' }, setProgress))
+          allOutputs.push(...await throwNewErrorBackend())
         }
         // CSV → JSON (lite)
         else if (kind === 'csv' && fmt === 'json') {
@@ -243,7 +234,7 @@ AINA — universal file conversion.
         }
         // CSV → PDF (full)
         else if (kind === 'csv' && fmt === 'pdf') {
-          allOutputs.push(...await full.csvToPdf(file, setProgress))
+          allOutputs.push(...await throwNewErrorBackend())
         }
         // CSV → Excel (lite: build a minimal xlsx-like .xls text)
         else if (kind === 'csv' && fmt === 'xlsx') {
@@ -257,7 +248,7 @@ AINA — universal file conversion.
         }
         // HTML → PDF (full)
         else if (kind === 'html' && fmt === 'pdf') {
-          allOutputs.push(...await full.htmlToPdf(file, setProgress))
+          allOutputs.push(...await throwNewErrorBackend())
         }
         // Spreadsheet → TXT (lite)
         else if (kind === 'spreadsheet' && fmt === 'txt') {
@@ -269,29 +260,29 @@ AINA — universal file conversion.
         }
         // Spreadsheet → PDF (full)
         else if (kind === 'spreadsheet' && fmt === 'pdf') {
-          allOutputs.push(...await full.spreadsheetToPdf(file, setProgress))
+          allOutputs.push(...await throwNewErrorBackend())
         }
         // PDF → image formats (full)
         else if (kind === 'pdf' && ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif'].includes(fmt)) {
-          allOutputs.push(...await full.pdfToImages(file, fmt, quality, setProgress))
+          allOutputs.push(...await pdfToImages(file, fmt, quality, setProgress))
         }
         // PDF → TXT (full)
         else if (kind === 'pdf' && fmt === 'txt') {
-          allOutputs.push(...await full.pdfToText(file, setProgress))
+          allOutputs.push(...await pdfToText(file, setProgress))
         }
         // PDF → Word (full, with backend fallback)
         else if (kind === 'pdf' && fmt === 'docx') {
-          allOutputs.push(...await full.pdfToWordLocal(file, setProgress))
+          allOutputs.push(...await pdfToWordLocal(file, setProgress))
         }
         // Image → PDF (full)
         else if (kind === 'image' && fmt === 'pdf') {
-          allOutputs.push(...await full.imagesToPdf([file], setProgress))
+          allOutputs.push(...await throwNewErrorBackend())
         }
         // Word → PDF (full)
         else if (kind === 'word' && fmt === 'pdf') {
           const text = await file.text()
           const fakeFile = new File([text], file.name.replace(/\.docx?$/i, '') + '.txt', { type: 'text/plain' })
-          allOutputs.push(...await full.textToPdf(fakeFile, setProgress))
+          allOutputs.push(...await throwNewErrorBackend())
         }
         else {
           throw new Error(`Can't convert ${kind} to ${fmt}`)
