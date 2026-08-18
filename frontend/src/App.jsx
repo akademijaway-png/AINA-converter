@@ -731,6 +731,16 @@ function Web2AppView() {
 
     setLoading(true)
     try {
+      // Test if the URL can be loaded in an iframe first
+      setError('Testing if site is wrappable...')
+      const canWrap = await testIfWrappable(normalized)
+      if (!canWrap) {
+        setError('❌ This site blocks being loaded in other apps. Try: wikipedia.org, bbc.com, github.com, news.ycombinator.com')
+        setLoading(false)
+        return
+      }
+      setError(null)
+
       const info = await fetchSiteInfo(normalized)
       const finalName = appName.trim() || info.title || info.domain
       const built = buildWebAppHtml(info, {
@@ -753,6 +763,32 @@ function Web2AppView() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Test if a URL can be loaded in an iframe (some sites block this)
+  const testIfWrappable = (url) => {
+    return new Promise((resolve) => {
+      const testIframe = document.createElement('iframe')
+      testIframe.style.display = 'none'
+      testIframe.src = url
+      let resolved = false
+
+      const finish = (result) => {
+        if (resolved) return
+        resolved = true
+        try { document.body.removeChild(testIframe) } catch {}
+        resolve(result)
+      }
+
+      // If iframe loads within 3 seconds, allow
+      testIframe.onload = () => finish(true)
+      testIframe.onerror = () => finish(false)
+
+      // Timeout — assume OK (most sites don't actively block, they just show different content)
+      setTimeout(() => finish(true), 3000)
+
+      document.body.appendChild(testIframe)
+    })
   }
 
   const downloadFile = () => {

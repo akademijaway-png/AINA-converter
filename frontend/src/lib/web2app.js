@@ -153,8 +153,9 @@ iframe{width:100vw;height:100vh;border:0;display:block;position:fixed;top:0;left
   <div class="splash-text">Loading ${escapeHtml(name)}...</div>
 </div>
 <div class="error" id="error">
-  <h2>⚠️ Can't load this site</h2>
-  <p>This website blocks being loaded inside other apps. Try a different site.</p>
+  <h2>⚠️ This site can't be wrapped</h2>
+  <p style="margin-bottom:12px">This website blocks being loaded inside other apps (security feature). The app was built, but the site refuses to load.</p>
+  <p style="font-size:12px;opacity:0.7">Try sites like: wikipedia.org, news.ycombinator.com, bbc.com, github.com</p>
 </div>
 <iframe id="app" src="${escapeHtml(siteInfo.url)}" allow="fullscreen; camera; microphone; geolocation; clipboard-read; clipboard-write"></iframe>
 <script>
