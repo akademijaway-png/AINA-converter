@@ -7,6 +7,7 @@ import {
   pdfSplit, pdfMerge,
   pdfToImages, pdfToText, pdfToWordLocal
 } from './lib/converters-lite'
+import { processScannedImage, buildScannedPDF, quickScan } from './lib/scanner'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -20,6 +21,9 @@ export default function App() {
   const [status, setStatus] = useState(null)
   const [history, setHistory] = useState([])
   const fileInput = useRef(null)
+  const cameraInput = useRef(null)
+  const [scans, setScans] = useState([])  // scanned pages for the scanner
+  const [scanBusy, setScanBusy] = useState(false)
 
   useEffect(() => {
     try {
@@ -154,6 +158,67 @@ AINA — universal file conversion.
       setBusy(false)
       setProgress(0)
     }
+  }
+
+  // ---------- Document Scanner ----------
+  const capturePhoto = () => {
+    if (cameraInput.current) cameraInput.current.click()
+  }
+
+  const onPhotoCaptured = async (e) => {
+    const photoFiles = Array.from(e.target.files || [])
+    if (photoFiles.length === 0) return
+
+    setScanBusy(true)
+    showStatus('Processing photo...')
+    try {
+      for (const photo of photoFiles) {
+        const processed = await quickScan(photo)
+        setScans(prev => [...prev, processed])
+      }
+      showStatus(`Scanned ${photoFiles.length} page(s)!`)
+      // Switch to scanner tab to show the result
+      setTab('scanner')
+    } catch (err) {
+      console.error(err)
+      showStatus('Scan failed: ' + (err.message || err), 'error')
+    } finally {
+      setScanBusy(false)
+      // Reset the input so the same photo can be re-captured
+      if (cameraInput.current) cameraInput.current.value = ''
+    }
+  }
+
+  const removeScan = (i) => {
+    setScans(prev => prev.filter((_, idx) => idx !== i))
+  }
+
+  const downloadScan = (scan) => {
+    saveAs(scan.blob, (scan.name || 'scan').replace(/\.[^.]+$/, '') + '.jpg')
+  }
+
+  const buildAndDownloadPDF = async () => {
+    if (scans.length === 0) {
+      showStatus('Scan some pages first', 'error')
+      return
+    }
+    setScanBusy(true)
+    showStatus('Building PDF...')
+    try {
+      const result = await buildScannedPDF(scans, { quality: 0.85 })
+      saveAs(result.blob, result.name)
+      showStatus('PDF ready!')
+    } catch (err) {
+      console.error(err)
+      showStatus('PDF build failed: ' + (err.message || err), 'error')
+    } finally {
+      setScanBusy(false)
+    }
+  }
+
+  const clearAllScans = () => {
+    setScans([])
+    showStatus('All scans cleared')
   }
 
 
@@ -331,6 +396,7 @@ AINA — universal file conversion.
 
       <nav className="app-nav">
         <button className={`nav-btn ${tab === 'convert' ? 'active' : ''}`} onClick={() => setTab('convert')}>Convert</button>
+        <button className={`nav-btn ${tab === 'scanner' ? 'active' : ''}`} onClick={() => setTab('scanner')}>📷 Scan</button>
         <button className={`nav-btn ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>History</button>
         <button className={`nav-btn ${tab === 'about' ? 'active' : ''}`} onClick={() => setTab('about')}>About</button>
       </nav>
@@ -344,6 +410,14 @@ AINA — universal file conversion.
             busy={busy} progress={progress} convert={convert}
             onDrop={onDrop} fileInput={fileInput} loadSample={loadSampleFile}
             splitPdf={splitPdf} mergePdfs={mergePdfs}
+          />
+        )}
+        {tab === 'scanner' && (
+          <ScannerView
+            scans={scans} capturePhoto={capturePhoto} onPhotoCaptured={onPhotoCaptured}
+            cameraInput={cameraInput} removeScan={removeScan} downloadScan={downloadScan}
+            buildAndDownloadPDF={buildAndDownloadPDF} clearAllScans={clearAllScans}
+            scanBusy={scanBusy}
           />
         )}
         {tab === 'history' && <HistoryView history={history} setHistory={setHistory} />}
@@ -510,6 +584,108 @@ function ConverterView({ files, addFiles, removeFile, targetFormat, setTargetFor
       <button className="action-btn" onClick={convert} disabled={busy || files.length === 0}>
         {busy ? <><span className="spinner" /> Converting…</> : <>🚀 Convert & Download</>}
       </button>
+    </>
+  )
+}
+
+// ============================================
+// Scanner View
+// ============================================
+function ScannerView({ scans, capturePhoto, onPhotoCaptured, cameraInput,
+  removeScan, downloadScan, buildAndDownloadPDF, clearAllScans, scanBusy }) {
+  return (
+    <>
+      <input
+        ref={cameraInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={onPhotoCaptured}
+      />
+
+      <div className="card" style={{ background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
+        <div className="card-title">
+          <span className="card-title-icon">📷</span>
+          Scan a document
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 12 }}>
+          Take a photo of a signed document. The app will auto-crop, enhance, and make it look like a clean scan.
+          You can scan multiple pages and combine them into one PDF.
+        </p>
+        <button
+          className="action-btn"
+          onClick={capturePhoto}
+          disabled={scanBusy}
+        >
+          {scanBusy ? <><span className="spinner" /> Processing...</> : <>📷 Take a photo</>}
+        </button>
+      </div>
+
+      {scans.length > 0 && (
+        <div className="card">
+          <div className="card-title">
+            <span className="card-title-icon">📄</span>
+            Scanned pages ({scans.length})
+            <button
+              style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#ef4444', fontSize: 11, cursor: 'pointer' }}
+              onClick={clearAllScans}
+            >
+              🗑️ Clear all
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8, marginBottom: 12 }}>
+            {scans.map((scan, i) => (
+              <div key={i} style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <img
+                  src={scan.dataUrl}
+                  alt={'Page ' + (i + 1)}
+                  style={{ width: '100%', display: 'block', aspectRatio: '3/4', objectFit: 'cover', cursor: 'pointer' }}
+                  onClick={() => downloadScan(scan)}
+                />
+                <button
+                  onClick={() => removeScan(i)}
+                  style={{
+                    position: 'absolute', top: 4, right: 4,
+                    background: 'rgba(239,68,68,0.9)', border: 'none',
+                    color: '#fff', width: 24, height: 24, borderRadius: '50%',
+                    cursor: 'pointer', fontSize: 14, lineHeight: 1
+                  }}
+                >×</button>
+                <div style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0,
+                  background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 10,
+                  padding: '2px 4px', textAlign: 'center'
+                }}>Page {i + 1}</div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            className="action-btn"
+            onClick={buildAndDownloadPDF}
+            disabled={scanBusy}
+            style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+          >
+            {scanBusy ? <><span className="spinner" /> Building PDF...</> : <>📕 Save as PDF ({scans.length} page{scans.length !== 1 ? 's' : ''})</>}
+          </button>
+        </div>
+      )}
+
+      <div className="card" style={{ background: 'rgba(255,255,255,0.02)' }}>
+        <div className="card-title">
+          <span className="card-title-icon" style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>💡</span>
+          How it works
+        </div>
+        <ol style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, paddingLeft: 18 }}>
+          <li>Tap <b>"📷 Take a photo"</b></li>
+          <li>Capture your signed document with the camera</li>
+          <li>The app auto-crops the edges and brightens the page</li>
+          <li>Repeat for more pages (or skip for single page)</li>
+          <li>Tap <b>"📕 Save as PDF"</b> to download and share</li>
+        </ol>
+      </div>
     </>
   )
 }
