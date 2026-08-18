@@ -246,3 +246,89 @@ export async function makeSamplePdf() {
   // Fallback: return a basic text-PDF structure
   return null
 }
+
+// ============================================
+// NEW: PDF Split (browser-based, no PDF.js needed)
+// Uses canvas to render each page then saves as separate PDFs
+// ============================================
+export async function pdfSplit(file, onProgress) {
+  // Load PDF.js dynamically (heavy lib, only when needed)
+  const pdfjsLib = await import('pdfjs-dist')
+  const { jsPDF } = await import('jspdf')
+
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  const results = []
+  const baseName = file.name.replace(/\.pdf$/i, '')
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const viewport = page.getViewport({ scale: 1.5 })
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    await page.render({ canvasContext: ctx, viewport }).promise
+    const imgData = canvas.toDataURL('image/jpeg', 0.92)
+
+    const newPdf = new jsPDF({
+      unit: 'pt',
+      format: [viewport.width, viewport.height]
+    })
+    newPdf.addImage(imgData, 'JPEG', 0, 0, viewport.width, viewport.height)
+
+    results.push({
+      blob: newPdf.output('blob'),
+      name: `${baseName}_page_${i}.pdf`
+    })
+    onProgress?.(i / pdf.numPages)
+  }
+  return results
+}
+
+// ============================================
+// NEW: PDF Merge (combine multiple PDFs into one)
+// ============================================
+export async function pdfMerge(files, onProgress) {
+  const pdfjsLib = await import('pdfjs-dist')
+  const { jsPDF } = await import('jspdf')
+
+  if (!files || files.length === 0) throw new Error('No files to merge')
+
+  // Use A4 as the base, or use first page's size
+  const mergedPdf = new jsPDF({ unit: 'pt', format: 'a4' })
+  let isFirstPage = true
+
+  for (let f = 0; f < files.length; f++) {
+    const file = files[f]
+    onProgress?.(f / files.length)
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const viewport = page.getViewport({ scale: 1.5 })
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      await page.render({ canvasContext: ctx, viewport }).promise
+      const imgData = canvas.toDataURL('image/jpeg', 0.85)
+
+      if (!isFirstPage) {
+        mergedPdf.addPage([viewport.width, viewport.height],
+          viewport.width > viewport.height ? 'landscape' : 'portrait')
+      } else {
+        isFirstPage = false
+      }
+      mergedPdf.addImage(imgData, 'JPEG', 0, 0, viewport.width, viewport.height)
+    }
+  }
+
+  onProgress?.(1)
+  return [{ blob: mergedPdf.output('blob'), name: 'merged.pdf' }]
+}

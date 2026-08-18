@@ -3,7 +3,8 @@ import { saveAs } from 'file-saver'
 import {
   detectKind, imageToImage, textToHtml, textToRtf, textToCsv,
   jsonToCsv, jsonToText, csvToJson, csvToText, htmlToText,
-  spreadsheetToText, spreadsheetToCsv
+  spreadsheetToText, spreadsheetToCsv,
+  pdfSplit, pdfMerge
 } from './lib/converters-lite'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
@@ -97,6 +98,70 @@ AINA — universal file conversion.
     const next = [entry, ...history].slice(0, 50)
     setHistory(next)
     localStorage.setItem('aina_history', JSON.stringify(next))
+  }
+
+  // ---------- PDF Tools: Split ----------
+  const splitPdf = async () => {
+    if (files.length === 0 || detectKind(files[0]) !== 'pdf') {
+      showStatus('Select a PDF file first', 'error')
+      return
+    }
+    setBusy(true)
+    setProgress(0)
+    try {
+      const outputs = await pdfSplit(files[0], setProgress)
+      // Download each page
+      for (const out of outputs) {
+        saveAs(out.blob, out.name)
+      }
+      saveHistory({
+        id: Date.now(),
+        time: new Date().toLocaleString(),
+        count: 1,
+        from: files[0].name,
+        to: 'PDF (split)',
+        outputs: outputs.length
+      })
+      showStatus(`Split into ${outputs.length} PDFs`)
+    } catch (e) {
+      console.error(e)
+      showStatus('Split failed: ' + (e.message || e), 'error')
+    } finally {
+      setBusy(false)
+      setProgress(0)
+    }
+  }
+
+  // ---------- PDF Tools: Merge ----------
+  const mergePdfs = async () => {
+    const pdfFiles = files.filter(f => detectKind(f) === 'pdf')
+    if (pdfFiles.length < 2) {
+      showStatus('Select at least 2 PDF files', 'error')
+      return
+    }
+    setBusy(true)
+    setProgress(0)
+    try {
+      const outputs = await pdfMerge(pdfFiles, setProgress)
+      for (const out of outputs) {
+        saveAs(out.blob, out.name)
+      }
+      saveHistory({
+        id: Date.now(),
+        time: new Date().toLocaleString(),
+        count: pdfFiles.length,
+        from: pdfFiles.length + ' PDFs',
+        to: 'PDF (merged)',
+        outputs: outputs.length
+      })
+      showStatus(`Merged ${pdfFiles.length} PDFs into 1`)
+    } catch (e) {
+      console.error(e)
+      showStatus('Merge failed: ' + (e.message || e), 'error')
+    } finally {
+      setBusy(false)
+      setProgress(0)
+    }
   }
 
   const convert = async () => {
@@ -260,7 +325,7 @@ AINA — universal file conversion.
     <div className="app">
       <header className="app-header">
         <h1 className="app-title">AINA Converter</h1>
-        <p className="app-subtitle">PDF · Word · Excel · Images · More</p>
+        <p className="app-subtitle">PDF · Word · Excel · Markdown · Images</p>
         {!API_URL && (
           <div style={{
             display: 'inline-block', marginTop: 8, padding: '4px 10px',
@@ -287,6 +352,7 @@ AINA — universal file conversion.
             quality={quality} setQuality={setQuality}
             busy={busy} progress={progress} convert={convert}
             onDrop={onDrop} fileInput={fileInput} loadSample={loadSampleFile}
+            splitPdf={splitPdf} mergePdfs={mergePdfs}
           />
         )}
         {tab === 'history' && <HistoryView history={history} setHistory={setHistory} />}
@@ -299,7 +365,7 @@ AINA — universal file conversion.
 }
 
 function ConverterView({ files, addFiles, removeFile, targetFormat, setTargetFormat,
-  quality, setQuality, busy, progress, convert, onDrop, fileInput, loadSample }) {
+  quality, setQuality, busy, progress, convert, onDrop, fileInput, loadSample, splitPdf, mergePdfs }) {
   const allFormats = [
     { id: 'jpg',   emoji: '🖼️', label: 'JPG',   sub: 'Image',    accepts: ['pdf', 'image'] },
     { id: 'png',   emoji: '🎨', label: 'PNG',   sub: 'Image',    accepts: ['pdf', 'image'] },
@@ -333,10 +399,10 @@ function ConverterView({ files, addFiles, removeFile, targetFormat, setTargetFor
         <div className="drop-zone-text">
           {files.length > 0 ? `${files.length} file(s) ready` : 'Tap to choose files'}
         </div>
-        <div className="drop-zone-hint">PDF, Word, Excel, PPT, images, JSON, CSV, HTML, TXT — up to 10 files</div>
+        <div className="drop-zone-hint">PDF, Word, Excel, PPT, Markdown, images, JSON, CSV, HTML, TXT — up to 10 files</div>
         <input
           ref={fileInput} type="file" multiple
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.ods,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.bmp,.gif,.tif,.tiff,.txt,.md,.html,.htm,.rtf,.json,.csv"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ods,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.bmp,.gif,.tif,.tiff,.txt,.md,.markdown,.html,.htm,.rtf,.json,.csv"
           style={{ display: 'none' }}
           onChange={(e) => addFiles(e.target.files)}
         />
@@ -363,6 +429,43 @@ function ConverterView({ files, addFiles, removeFile, targetFormat, setTargetFor
               <button className="file-remove" onClick={() => removeFile(i)}>✕</button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* PDF Tools - only show when PDFs are loaded */}
+      {files.length > 0 && files.some(f => detectKind(f) === 'pdf') && (
+        <div className="card" style={{ marginTop: 12, background: 'rgba(124, 58, 237, 0.08)', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
+          <div className="card-title">
+            <span className="card-title-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #ec4899)' }}>🔧</span>
+            PDF Tools
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+            Quick actions for PDF files
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="action-btn secondary"
+              style={{ flex: 1, marginTop: 0, padding: '12px 8px', fontSize: 13 }}
+              onClick={splitPdf}
+              disabled={busy || files.filter(f => detectKind(f) === 'pdf').length !== 1}
+            >
+              ✂️ Split PDF
+              <div style={{ fontSize: 9, opacity: 0.7, marginTop: 2, fontWeight: 500 }}>
+                1 page per file
+              </div>
+            </button>
+            <button
+              className="action-btn secondary"
+              style={{ flex: 1, marginTop: 0, padding: '12px 8px', fontSize: 13 }}
+              onClick={mergePdfs}
+              disabled={busy || files.filter(f => detectKind(f) === 'pdf').length < 2}
+            >
+              🔗 Merge PDFs
+              <div style={{ fontSize: 9, opacity: 0.7, marginTop: 2, fontWeight: 500 }}>
+                Combine all into 1
+              </div>
+            </button>
+          </div>
         </div>
       )}
 
@@ -492,7 +595,8 @@ function fileEmoji(name) {
   if (n.endsWith('.csv')) return '📋'
   if (n.endsWith('.html') || n.endsWith('.htm')) return '🌐'
   if (n.endsWith('.rtf')) return '📃'
-  if (n.endsWith('.txt') || n.endsWith('.md')) return '📝'
+  if (n.endsWith('.md') || n.endsWith('.markdown')) return '📑'
+  if (n.endsWith('.txt')) return '📝'
   return '📄'
 }
 
