@@ -8,6 +8,7 @@ import {
   pdfToImages, pdfToText, pdfToWordLocal
 } from './lib/converters-lite'
 import { processScannedImage, buildScannedPDF, quickScan } from './lib/scanner'
+import { fetchSiteInfo, buildWebAppHtml, downloadApp, getQRCodeUrl } from './lib/web2app'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
@@ -396,6 +397,7 @@ AINA — universal file conversion.
 
       <nav className="app-nav">
         <button className={`nav-btn ${tab === 'convert' ? 'active' : ''}`} onClick={() => setTab('convert')}>Convert</button>
+        <button className={`nav-btn ${tab === 'web2app' ? 'active' : ''}`} onClick={() => setTab('web2app')}>🌐 Web2App</button>
         <button className={`nav-btn ${tab === 'scanner' ? 'active' : ''}`} onClick={() => setTab('scanner')}>📷 Scan</button>
         <button className={`nav-btn ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>History</button>
         <button className={`nav-btn ${tab === 'about' ? 'active' : ''}`} onClick={() => setTab('about')}>About</button>
@@ -420,6 +422,7 @@ AINA — universal file conversion.
             scanBusy={scanBusy}
           />
         )}
+        {tab === 'web2app' && <Web2AppView />}
         {tab === 'history' && <HistoryView history={history} setHistory={setHistory} />}
         {tab === 'about' && <AboutView />}
       </main>
@@ -686,6 +689,240 @@ function ScannerView({ scans, capturePhoto, onPhotoCaptured, cameraInput,
           <li>Tap <b>"📕 Save as PDF"</b> to download and share</li>
         </ol>
       </div>
+    </>
+  )
+}
+
+// ============================================
+// Web-to-App Builder
+// ============================================
+function Web2AppView() {
+  const [url, setUrl] = useState('')
+  const [appName, setAppName] = useState('')
+  const [themeColor, setThemeColor] = useState('#7c3aed')
+  const [siteInfo, setSiteInfo] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [builtHtml, setBuiltHtml] = useState(null)
+  const [builtUrl, setBuiltUrl] = useState(null)
+  const [qrUrl, setQrUrl] = useState(null)
+
+  const buildApp = async () => {
+    setError(null)
+    setSiteInfo(null)
+    setBuiltHtml(null)
+    setBuiltUrl(null)
+    setQrUrl(null)
+
+    if (!url.trim()) {
+      setError('Please enter a URL')
+      return
+    }
+    let normalized = url.trim()
+    if (!/^https?:\/\//.test(normalized)) {
+      normalized = 'https://' + normalized
+    }
+    try {
+      new URL(normalized)
+    } catch (e) {
+      setError('Invalid URL')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const info = await fetchSiteInfo(normalized)
+      const finalName = appName.trim() || info.title || info.domain
+      const built = buildWebAppHtml(info, {
+        name: finalName,
+        themeColor,
+        bgColor: '#0a0a0f'
+      })
+      setSiteInfo({ ...info, title: finalName })
+      setBuiltHtml(built)
+
+      // Create blob URL for download/preview/QR
+      const blob = new Blob([built], { type: 'text/html' })
+      const blobUrl = URL.createObjectURL(blob)
+      setBuiltUrl(blobUrl)
+
+      // Generate QR code with the blob URL
+      setQrUrl(getQRCodeUrl(blobUrl, 250))
+    } catch (e) {
+      setError('Failed to build: ' + (e.message || e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const downloadFile = () => {
+    if (!builtHtml) return
+    const filename = (siteInfo?.title || 'webapp').replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.html'
+    downloadApp(builtHtml, filename)
+  }
+
+  const copyShareLink = async () => {
+    if (!builtUrl) return
+    try {
+      await navigator.clipboard.writeText(builtUrl)
+      // Simple feedback
+      const btn = document.getElementById('copy-link-btn')
+      if (btn) {
+        const orig = btn.textContent
+        btn.textContent = '✅ Copied!'
+        setTimeout(() => { btn.textContent = orig }, 2000)
+      }
+    } catch (e) {
+      alert('Copy failed. URL: ' + builtUrl)
+    }
+  }
+
+  return (
+    <>
+      <div className="card" style={{ background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
+        <div className="card-title">
+          <span className="card-title-icon" style={{ background: 'linear-gradient(135deg, #06b6d4, #3b82f6)' }}>🌐</span>
+          Web to App
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 12 }}>
+          Paste any website URL and turn it into a mobile app you can install on your phone.
+        </p>
+
+        <input
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://example.com"
+          style={{
+            width: '100%', padding: '12px 14px', fontSize: 14,
+            background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)',
+            borderRadius: '10px', color: '#fff', marginBottom: 10,
+            fontFamily: 'inherit'
+          }}
+        />
+
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <input
+            type="text"
+            value={appName}
+            onChange={(e) => setAppName(e.target.value)}
+            placeholder="App name (optional)"
+            style={{
+              flex: 1, padding: '10px 12px', fontSize: 13,
+              background: 'rgba(0,0,0,0.3)', border: '1px solid var(--glass-border)',
+              borderRadius: '8px', color: '#fff', fontFamily: 'inherit'
+            }}
+          />
+          <input
+            type="color"
+            value={themeColor}
+            onChange={(e) => setThemeColor(e.target.value)}
+            style={{
+              width: 44, height: 38, padding: 0,
+              background: 'transparent', border: '1px solid var(--glass-border)',
+              borderRadius: '8px', cursor: 'pointer'
+            }}
+            title="Theme color"
+          />
+        </div>
+
+        <button
+          className="action-btn"
+          onClick={buildApp}
+          disabled={loading || !url.trim()}
+        >
+          {loading ? <><span className="spinner" /> Building...</> : <>🚀 Build App</>}
+        </button>
+
+        {error && (
+          <div style={{
+            marginTop: 10, padding: 10, background: 'rgba(239,68,68,0.15)',
+            border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8,
+            fontSize: 12, color: '#fca5a5'
+          }}>⚠️ {error}</div>
+        )}
+      </div>
+
+      {siteInfo && builtHtml && (
+        <>
+          <div className="card">
+            <div className="card-title">
+              <span className="card-title-icon">✅</span>
+              App built: {siteInfo.title}
+            </div>
+
+            {/* Preview */}
+            <div style={{
+              background: 'rgba(0,0,0,0.4)', borderRadius: 12, overflow: 'hidden',
+              border: '1px solid var(--glass-border)', marginBottom: 12,
+              aspectRatio: '9/16', maxHeight: 400, position: 'relative'
+            }}>
+              <iframe
+                src={builtUrl}
+                style={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+                title="App Preview"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+              />
+            </div>
+
+            {/* QR Code */}
+            {qrUrl && (
+              <div style={{
+                textAlign: 'center', marginBottom: 12, padding: 12,
+                background: 'rgba(0,0,0,0.2)', borderRadius: 12
+              }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+                  📱 Scan with your phone to install
+                </div>
+                <img src={qrUrl} alt="QR Code" style={{ width: 160, height: 160, borderRadius: 8 }} />
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button
+                className="action-btn"
+                onClick={downloadFile}
+                style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+              >
+                ⬇️ Download HTML
+              </button>
+              <button
+                id="copy-link-btn"
+                className="action-btn secondary"
+                onClick={copyShareLink}
+              >
+                📋 Copy share link
+              </button>
+              <a
+                href={builtUrl}
+                target="_blank"
+                rel="noopener"
+                className="action-btn secondary"
+                style={{ textDecoration: 'none', textAlign: 'center' }}
+              >
+                👁️ Open in new tab
+              </a>
+            </div>
+          </div>
+
+          <div className="card" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <div className="card-title">
+              <span className="card-title-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #ec4899)' }}>💡</span>
+              How to install on your phone
+            </div>
+            <ol style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, paddingLeft: 18 }}>
+              <li>Open the link on your phone (scan QR or tap "Open in new tab")</li>
+              <li><b>Android:</b> Menu (⋮) → "Install app"</li>
+              <li><b>iPhone:</b> Share (↑) → "Add to Home Screen"</li>
+              <li>The app icon will appear on your home screen!</li>
+            </ol>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10, padding: 10, background: 'rgba(245,158,11,0.1)', borderRadius: 8, border: '1px solid rgba(245,158,11,0.2)' }}>
+              ⚠️ <b>Note:</b> Some websites block being loaded inside other apps (via X-Frame-Options). If the preview shows an error, try a different site like wikipedia.org, example.com, or news sites.
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }
