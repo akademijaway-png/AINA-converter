@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web to App — Forge any website into an Android APK</title>
+  <meta name="description" content="Paste a URL. Web to App wraps it in a native Android WebView, signs it, and hands you an APK to install." />
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <meta name="theme-color" content="#0b0907" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;560;650;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="#">
+        <img src="/assets/logo-mark.png" alt="" />
+        <div class="brand-name">Web <span>to</span> App</div>
+      </a>
+      <nav class="nav">
+        <a href="#studio">Studio</a>
+        <a href="#how">How it works</a>
+        <a class="nav-cta" href="#studio">Forge an APK</a>
+      </nav>
+    </header>
+
+    <section class="dl-banner" id="your-apk" hidden>
+      <div>
+        <p class="eyebrow"><i></i> Your APK is ready</p>
+        <h2 id="ready-title">Download your app</h2>
+        <p>If the button does nothing, tap <b>Download ZIP</b> or copy the link into Chrome.</p>
+        <div class="dl-linkbox">
+          <code id="dl-url"></code>
+          <button class="btn btn-ghost" type="button" id="copy-dl">Copy link</button>
+        </div>
+      </div>
+      <div class="result-actions">
+        <a class="btn btn-amber" id="banner-zip" href="#" download target="_blank" rel="noopener">Download ZIP</a>
+        <a class="btn btn-ghost" id="banner-apk" href="#" download target="_blank" rel="noopener">Download APK</a>
+      </div>
+    </section>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow"><i></i> URL → Android package</p>
+        <h1>Turn any website into an <em>installable</em> app.</h1>
+        <p class="lede">
+          Drop in a URL. We wrap it in a native WebView, bake your name, colour and icon,
+          sign the package, and give you an APK to sideload.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-amber" href="#studio">Open the forge</a>
+          <a class="btn btn-ghost" href="#how">See the pipeline</a>
+        </div>
+      </div>
+      <figure class="hero-art">
+        <img src="/assets/hero-forge.png" alt="A glowing URL bar pouring molten metal into a smartphone" />
+        <figcaption class="hero-badge">
+          <b>Real signed APK</b>
+          Android 5.0+ · v1 / v2 / v3 signatures · no Play account needed
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="studio" id="studio">
+      <div class="studio-head">
+        <div>
+          <p class="eyebrow"><i></i> Studio 01</p>
+          <h2>The forge</h2>
+          <p>One URL in. One APK out. Customize the shell first if you like.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <form class="form" id="forge-form" autocomplete="off">
+          <div class="field">
+            <label for="url">Website URL</label>
+            <input class="input input-lg" id="url" name="url" type="url" placeholder="https://your-site.com" required />
+            <div class="chips" id="samples">
+              <button type="button" class="chip" data-url="https://en.wikipedia.org">Wikipedia</button>
+              <button type="button" class="chip" data-url="https://news.ycombinator.com">Hacker News</button>
+              <button type="button" class="chip" data-url="https://duckduckgo.com">DuckDuckGo</button>
+              <button type="button" class="chip" data-url="https://m.youtube.com">YouTube</button>
+            </div>
+          </div>
+
+          <div class="row-2">
+            <div class="field">
+              <label for="name">App name</label>
+              <input class="input" id="name" name="name" maxlength="40" placeholder="My App" />
+            </div>
+            <div class="field">
+              <label for="package">Package ID</label>
+              <input class="input" id="package" name="package" spellcheck="false" placeholder="com.webtoapp.myapp" />
+            </div>
+          </div>
+
+          <div class="row-3">
+            <div class="field">
+              <label>Theme colour</label>
+              <div class="color-row">
+                <input type="color" id="color" value="#ff7a18" />
+                <div class="swatches" id="swatches"></div>
+              </div>
+            </div>
+            <div class="field">
+              <label for="versionName">Version</label>
+              <input class="input" id="versionName" value="1.0" />
+            </div>
+            <div class="field">
+              <label for="versionCode">Build no.</label>
+              <input class="input" id="versionCode" type="number" min="1" value="1" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Launcher icon</label>
+            <div class="icon-row">
+              <div class="icon-preview" id="icon-preview"></div>
+              <div>
+                <label class="btn btn-ghost file-btn">
+                  Upload PNG
+                  <input type="file" id="icon-file" accept="image/png,image/jpeg,image/webp" />
+                </label>
+                <div class="hint" id="icon-hint">We’ll grab the site favicon if you skip this.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="toggles">
+            <div class="toggle on" data-key="javascript"><span>JavaScript</span><div class="switch"></div></div>
+            <div class="toggle" data-key="zoom"><span>Pinch zoom</span><div class="switch"></div></div>
+            <div class="toggle" data-key="fullscreen"><span>Fullscreen</span><div class="switch"></div></div>
+            <div class="toggle on" data-key="externalBrowser"><span>External links → browser</span><div class="switch"></div></div>
+          </div>
+
+          <div class="forge-bar">
+            <div class="hint">Min Android 5.0 · signed for sideload · typically under 150 KB</div>
+            <button class="btn btn-amber btn-forge" id="forge-btn" type="submit">Forge APK</button>
+          </div>
+        </form>
+
+        <aside class="preview-col">
+          <div class="phone" aria-hidden="true">
+            <div class="phone-bar"><div class="notch"></div></div>
+            <div class="screen">
+              <div class="splash" id="splash">
+                <div class="ph" id="splash-icon">W</div>
+                <h3 id="splash-name">Your app</h3>
+                <p id="splash-url">https://</p>
+              </div>
+            </div>
+            <div class="home-pill"></div>
+          </div>
+          <div class="preview-meta" id="preview-meta">Splash preview · the APK opens your live site</div>
+        </aside>
+      </div>
+
+      <div class="forge-status" id="status">
+        <div class="status-top">
+          <div class="steps" id="steps"></div>
+        </div>
+        <pre class="log" id="log"></pre>
+        <div class="result" id="result">
+          <div>
+            <b>APK ready.</b>
+            <div class="hint" id="result-meta">Signed package for Android 5.0+</div>
+          </div>
+          <form id="dl-form" method="get" action="/downloads/latest-app.zip" target="_top">
+            <button class="btn btn-amber" type="submit" id="download-zip">Download ZIP</button>
+          </form>
+        </div>
+        <div class="errbox" id="errbox"></div>
+      </div>
+
+      <div class="ready-shelf" id="ready-shelf">
+        <h3>Ready APKs</h3>
+        <div class="ready-list" id="ready-list"></div>
+      </div>
+    </section>
+
+    <section class="how" id="how">
+      <h2>Three beats. Then install.</h2>
+      <div class="cards">
+        <article class="card">
+          <div class="num">01</div>
+          <h3>Point at a site</h3>
+          <p>Any public http or https URL. We read the title, theme colour and favicon so the shell already feels like the brand.</p>
+        </article>
+        <article class="card">
+          <div class="num">02</div>
+          <h3>We compile a WebView</h3>
+          <p>A native Android activity loads your URL, with back-navigation, file uploads, downloads, and an offline retry screen.</p>
+        </article>
+        <article class="card">
+          <div class="num">03</div>
+          <h3>You get a signed APK</h3>
+          <p>Enable “install unknown apps”, tap the file, done. Rebuild anytime you change the name, icon or colour.</p>
+        </article>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <div>Web to App · forged in the studio · sideload only, not a Play Store publisher</div>
+      <div>APKs are debug-signed with a shared studio key — fine for personal use</div>
+    </footer>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

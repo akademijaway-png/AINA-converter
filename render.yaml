@@ -1,27 +1,9 @@
-# ============================================
-# AINA Converter — Render Blueprint
-# ============================================
-
 services:
   - type: web
-    name: aina-converter-api
-    runtime: node
-    rootDir: backend
+    name: web-to-app
+    runtime: docker
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /health
+    healthCheckPath: /api/health
     envVars:
-      - key: NODE_VERSION
-        value: 20
-
-  - type: web
-    name: aina-converter
-    runtime: static
-    rootDir: frontend
-    plan: free
-    buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
-    envVars:
-      - key: VITE_API_URL
-        sync: false
+      - key: NODE_ENV
+        value: production
